@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRASS Auto კონტენტ გეგმა</title>
+<meta name="robots" content="noindex,nofollow">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky top bar and tabs; Overview and Report are single columns, the other tabs are a list beside an editable card. */
+:root{
+  --bg:#f2f5f3; --surface:#ffffff; --ink:#17231c; --muted:#5d6d63; --line:#d9e1dc;
+  --accent:#1f5c3a; --accent-ink:#ffffff; --accent-soft:#e3efe8;
+  --s-draft:#8a948e; --s-review:#b7791f; --s-fix:#c2413a; --s-ok:#2f855a;
+  --font:'Noto Sans Georgian',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101612; --surface:#18211b; --ink:#e6eee9; --muted:#9baba1; --line:#2b372f;
+    --accent:#5fb985; --accent-ink:#0d1a12; --accent-soft:#1f3328;
+    --s-draft:#9aa59e; --s-review:#e0a53b; --s-fix:#ee7b72; --s-ok:#5fc38c;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101612; --surface:#18211b; --ink:#e6eee9; --muted:#9baba1; --line:#2b372f;
+  --accent:#5fb985; --accent-ink:#0d1a12; --accent-soft:#1f3328;
+  --s-draft:#9aa59e; --s-review:#e0a53b; --s-fix:#ee7b72; --s-ok:#5fc38c;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-size:16px;margin:0}
+
+.app{min-height:100%;display:flex;flex-direction:column}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:14px 20px;background:var(--surface)}
+.brand{display:flex;flex-direction:column;line-height:1.2}
+.brand b{font-size:18px;font-weight:700;color:var(--accent)}
+.brand span{font-size:12px;color:var(--muted)}
+.month{display:flex;align-items:center;gap:6px;margin-left:auto}
+.month button{width:34px;height:34px;border:1px solid var(--line);background:var(--surface);border-radius:8px;font-size:18px;line-height:1}
+.month button:hover{background:var(--accent-soft)}
+.month output{min-width:132px;text-align:center;font-weight:600}
+
+.themebtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:500;white-space:nowrap}
+.themebtn:hover{background:var(--accent-soft)}
+:root[data-theme="light"]{color-scheme:light}
+.tabs{display:flex;gap:2px;padding:0 14px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;z-index:5}
+.tabs button{border:0;background:none;padding:12px 14px;font-weight:500;border-bottom:3px solid transparent;white-space:nowrap;color:var(--muted)}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{border-color:var(--accent);color:var(--accent);font-weight:600}
+.tabs .n{font-size:11px;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:0 7px;margin-left:5px}
+
+.notice{margin:12px 20px 0;padding:10px 14px;border-radius:8px;background:var(--accent-soft);font-size:13px;display:none}
+.notice.on{display:block}
+
+.page{width:100%;max-width:980px;margin:0 auto;padding:16px 20px 32px;display:flex;flex-direction:column;gap:16px}
+.lead{font-size:13px;color:var(--muted);margin:0}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column}
+.tile b{font-size:22px;font-variant-numeric:tabular-nums;line-height:1.2}
+.tile span{font-size:12.5px;color:var(--muted)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.attn{display:flex;flex-direction:column;gap:6px}
+.attn button{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 12px;border-left:4px solid var(--c)}
+.attn button:hover{border-color:var(--accent)}
+.attn .ok{color:var(--muted);font-size:13.5px}
+
+.phase{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px;display:flex;flex-direction:column}
+.phase.now{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.phase header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:6px}
+.days{background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:1px 9px;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.phase .who{font-size:12.5px;color:var(--muted)}
+.phase .prog{margin-left:auto;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.nowtag{font-size:11.5px;font-weight:700;color:var(--accent)}
+.task{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.task input{margin-top:4px;width:18px;height:18px;accent-color:var(--accent);flex:none}
+.task .t{flex:1;min-width:0}
+.task.done .t{color:var(--muted);text-decoration:line-through}
+.task .by{display:block;font-size:11.5px;color:var(--muted);text-decoration:none}
+.actor{font-size:11.5px;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:0 7px;white-space:nowrap;margin-top:2px}
+.ongoing li{margin:4px 0}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 20px 0}
+.add{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 16px;font-weight:600}
+.add:hover{filter:brightness(1.08)}
+.add[disabled]{opacity:.5;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:13px}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.chip b{font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.hintline{padding:8px 20px 0;font-size:12.5px;color:var(--muted)}
+
+.main{flex:1;display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:16px;padding:14px 20px 28px;align-items:start}
+.list{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;flex-direction:column;gap:6px;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;padding:11px 14px}
+.row:hover{border-color:var(--accent)}
+.row[aria-current="true"]{outline:2px solid var(--accent);outline-offset:-1px}
+.row .name{font-weight:600;overflow-wrap:anywhere}
+.row .name.empty{color:var(--muted);font-weight:400}
+.row .meta{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:12px;color:var(--muted);align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--c)}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
+.tag{background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:1px 8px;font-size:12px;font-weight:500}
+.emptybox{border:1px dashed var(--line);border-radius:10px;padding:26px 16px;text-align:center;color:var(--muted)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px}
+.card .back{display:none;align-self:flex-start;border:0;background:none;color:var(--accent);font-weight:600;padding:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.f.wide{grid-column:1/-1}
+.f label{font-size:12.5px;font-weight:600;color:var(--muted)}
+.f input,.f select,.f textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.f textarea{resize:vertical;min-height:84px}
+.f textarea.tall{min-height:190px}
+.f textarea.short{min-height:64px}
+.f input:disabled,.f select:disabled,.f textarea:disabled{opacity:.7}
+.f.key textarea,.f.key input{border-color:var(--accent)}
+.f.key label{color:var(--accent)}
+.hint{font-size:12px;color:var(--muted)}
+.tagpick{display:flex;flex-wrap:wrap;gap:6px}
+.tp{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:5px 12px;font-size:13px}
+.tp[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.tp:disabled{opacity:.6;cursor:not-allowed}
+.archive{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.archive button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:13px}
+.archive button[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.prod{border:1px solid var(--line);border-radius:10px;background:var(--bg);margin-bottom:8px}
+.prod summary{padding:10px 14px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.prod summary::-webkit-details-marker{display:none}
+.prod summary::after{content:"▸";color:var(--muted);transition:transform .15s}
+.prod[open] summary::after{transform:rotate(90deg)}
+.prod .pbody{padding:0 14px 14px;display:grid;gap:10px}
+.addsm{border:1px dashed var(--accent);background:none;color:var(--accent);border-radius:8px;padding:8px 14px;font-weight:600}
+.addsm:hover{background:var(--accent-soft)}
+.addsm:disabled{opacity:.5;cursor:not-allowed}
+body.locked .app{display:none}
+.login{min-height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
+.logincard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px}
+.logincard h1{font-size:19px;margin:0;color:var(--accent)}
+.logincard p{margin:0;color:var(--muted);font-size:13.5px}
+.logincard label{font-size:12.5px;font-weight:600;color:var(--muted);margin-top:4px}
+.logincard input{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.logincard .add{margin-top:10px}
+.lerr{color:var(--s-fix)!important;min-height:1.2em}
+.embedwrap{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.embed{width:100%;background:#000;border-radius:10px;overflow:hidden}
+.embed.v{aspect-ratio:9/16;max-width:320px}
+.embed.h{aspect-ratio:16/9;max-width:640px}
+.embed iframe{width:100%;height:100%;border:0;display:block}
+.embedbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.embedbar button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:4px 10px;font-size:12.5px}
+.embedbar button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.embedbar a{color:var(--accent)}
+.statusrow{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.checks{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:6px 10px}
+.checks label{display:flex;gap:10px;align-items:center;font-weight:400;font-size:14px;color:var(--ink);padding:5px 0}
+.checks input{width:17px;height:17px;accent-color:var(--accent);padding:0}
+.checks .none{color:var(--muted);font-size:13px;padding:6px 0}
+
+.status{display:flex;flex-wrap:wrap;gap:8px}
+.status button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:7px}
+.status button i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.status button[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:#fff;font-weight:600}
+.status button[aria-pressed="true"] i{background:#fff}
+.status button[disabled]{opacity:.6;cursor:not-allowed}
+
+.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+.del{border:1px solid var(--line);background:none;border-radius:8px;padding:6px 12px;color:var(--s-fix)}
+.del.sure{background:var(--s-fix);border-color:var(--s-fix);color:#fff}
+.placeholder{border:1px dashed var(--line);border-radius:12px;padding:48px 20px;text-align:center;color:var(--muted)}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-top:1px solid var(--line)}
+th{font-size:12px;color:var(--muted);font-weight:600;border-top:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+@media (max-width:860px){
+  .main{grid-template-columns:1fr}
+  .main.detail .list{display:none}
+  .main:not(.detail) .detailcol{display:none}
+  .card .back{display:block}
+  .grid2{grid-template-columns:1fr}
+  .month{margin-left:0}
+}
+@media (max-width:480px){.top,.main,.bar,.page,.hintline{padding-left:16px;padding-right:16px}.notice{margin-left:16px;margin-right:16px}}
+@media (prefers-reduced-motion:no-preference){.row,.chip,.add,.tabs button{transition:border-color .15s,background .15s,color .15s}}
+</style>
+</head>
+<body class="locked">
+<div class="login" id="login" hidden>
+  <form class="logincard" id="loginForm">
+    <h1>GRASS Auto კონტენტ გეგმა</h1>
+    <p>შესასვლელად გამოიყენეთ თქვენი ელფოსტა და პაროლი.</p>
+    <label for="lemail">ელფოსტა</label><input id="lemail" type="email" autocomplete="username" required>
+    <label for="lpass">პაროლი</label><input id="lpass" type="password" autocomplete="current-password" required>
+    <button class="add" type="submit">შესვლა</button>
+    <p class="lerr" id="lerr" role="alert"></p>
+  </form>
+</div>
+<div class="app">
+  <header class="top">
+    <div class="brand"><b>GRASS Auto კონტენტ გეგმა</b><span>Alter Media × GRASS · საერთო სამუშაო სივრცე</span></div>
+    <div class="month" role="group" aria-label="თვე">
+      <button id="prev" type="button" aria-label="წინა თვე">‹</button>
+      <output id="monthLabel"></output>
+      <button id="next" type="button" aria-label="შემდეგი თვე">›</button>
+    </div>
+    <button class="themebtn" id="themeBtn" type="button"></button>
+    <button class="themebtn" id="logoutBtn" type="button">გასვლა</button>
+  </header>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="განყოფილებები"></nav>
+  <div class="notice" id="notice" role="status"></div>
+  <div id="view"></div>
+</div>
+
+<script>
+/* ---------- constants (wording follows the Grass Auto audit and the monthly workflow) ---------- */
+const TYPES=["სწავლება","ვიზუალური დამტკიცება (Before/After)","მითების გაქარწყლება","ბათუმის კლიმატი","უსაფრთხოება","B2B","სანდოობა","სეგმენტის შიშზე პასუხი"];
+const AUD=["B2B","B2C","B2B + B2C"];
+const FEARS=["ავტომობილის დაზიანების შიში","ზარალი უხარისხო ან არასერტიფიცირებული პროდუქციისგან","ეჭვი ეფექტურობაში","გაზავების სირთულე და აღჭურვილობის არქონა","ჯანმრთელობა და სუნი","ყალბი, გაზავებული ან ვადაგასული პროდუქციის შიში ონლაინ ყიდვისას","B2B: მაღალი ხარჯი ერთ რეცხვაზე","B2B: არასტაბილური შედეგი და ცვალებადი კადრები","B2B: მიწოდების მოუწესრიგებლობა","ჩვევის ინერცია","აღქმითი გაერთიანება","შედეგის ხანმოკლეობის განცდა","არჩევანის სირთულე","უცნობი ბრენდი","B2B: გადასვლის რისკი"];
+const ST_VIDEO=[{k:"draft",t:"მზადდება",c:"var(--s-draft)"},{k:"review",t:"არჩილის განხილვაში",c:"var(--s-review)"},{k:"fix",t:"საჭიროებს შესწორებას",c:"var(--s-fix)"},{k:"ok",t:"დამტკიცებულია",c:"var(--s-ok)"}];
+const MONTHS=["იანვარი","თებერვალი","მარტი","აპრილი","მაისი","ივნისი","ივლისი","აგვისტო","სექტემბერი","ოქტომბერი","ნოემბერი","დეკემბერი"];
+const A="არჩილი",AM="Alter Media",GA="GRASS + Alter Media";
+
+const PHASES=[
+ {id:"p1",from:1,to:3,days:"1–3",title:"ინფორმაციის შეგროვება და პროდუქტების შერჩევა",who:A,tasks:[
+  ["a","ინფორმაციის მიწოდება: პროდუქტები, აქციები, კითხვები, სიახლეები, იდეები"],["b","მომდევნო თვის პროდუქტების შერჩევა და მათი დეტალების მიწოდება"]]},
+ {id:"p2",from:4,to:7,days:"4–7",title:"კონტენტის დაგეგმვა და მომზადება",who:AM,tasks:[
+  ["a","იდეები, სცენარები და გადაღების გეგმა"],["b","ყოველთვიური კონტენტ კალენდარი"]]},
+ {id:"p3",from:8,to:10,days:"8–10",title:"კონტენტ კალენდრის შეთანხმება",who:GA,tasks:[
+  ["a","კალენდრის გადახედვა, ტექნიკური დეტალების გადამოწმება, გადაღების დღეებსა და მსახიობზე შეთანხმება",A],["b","ცვლილებების გათვალისწინება და სცენარების საბოლოო ვერსია",AM]]},
+ {id:"p4",from:11,to:24,days:"11–24",title:"გადაღება და კონტენტის წარმოება",who:AM,tasks:[
+  ["a","ორი გადაღების ჩატარება",AM],["b","კონტენტის მონტაჟი",AM]]},
+ {id:"p5",from:25,to:27,days:"25–27",title:"საბოლოო გადახედვა და შესწორებები",who:A+" + "+AM,tasks:[
+  ["a","კონტენტის გადახედვა და ტექნიკური სიზუსტის შემოწმება",A],["b","შესწორებები და გამოსაქვეყნებლად მომზადება",AM]]},
+ {id:"p6",from:28,to:31,days:"28–30/31",title:"მომდევნო პერიოდის დაგეგმვა და ყოველთვიური ანგარიშგება",who:AM,tasks:[
+  ["a","მომდევნო პერიოდის პოსტების დასქეჯულება"],["b","ანგარიშის მომზადება („ანგარიში“ ჩანართში)"]]}
+];
+
+/* ---------- entity tabs: videos, info, shoots ---------- */
+const ENT={
+ videos:{col:"items",label:"ვიდეოები",st:ST_VIDEO,add:"+ ახალი ვიდეო",none:"ამ თვეში ვიდეო ჯერ არ არის დამატებული.",noName:"უსახელო ვიდეო",
+  lead:"ვიდეოების გეგმა: პროდუქტი, ტიპი, აუდიტორია, სცენარი და ტექსტი. არჩილი სტატუსით ადასტურებს ან ითხოვს შესწორებას.",
+  title:i=>i.product,tags:i=>[i.type],sub:i=>[i.audience],
+  defaults:{product:"",type:"",audience:"",fear:"",idea:"",script:"",caption:"",comment:""},
+  fields:[
+   {k:"product",l:"პროდუქტის დასახელება",t:"text"},
+   {k:"type",l:"ვიდეოს ტიპი",t:"select",opts:TYPES,ph:"აირჩიეთ ტიპი",half:1},
+   {k:"audience",l:"აუდიტორია",t:"select",opts:AUD,ph:"აირჩიეთ აუდიტორია",half:1},
+   {k:"fear",l:"რომელ შიშს / წინააღმდეგობას პასუხობს",t:"select",opts:FEARS,ph:"აირჩიეთ შიში"},
+   {k:"driveUrl",l:"ვიდეოს ბმული (Google Drive ან YouTube)",t:"text",ph:"ჩასვით ბმული"},
+   {k:"_embed",l:"ვიდეო",t:"embed"},
+   {k:"idea",l:"მთავარი იდეა (1 წინადადება, წერს ადამიანი)",t:"area",cls:"key short",ph:"რა უნდა გაიგოს მაყურებელმა ამ ვიდეოდან?",hint:"სცენარი და Caption ამ იდეას უნდა ემორჩილებოდეს."},
+   {k:"script",l:"ვიდეოს სცენარი",t:"area",cls:"tall",ph:"კადრი 1: …"},
+   {k:"caption",l:"ტექსტი ვიდეოს ზემოთ (Caption)",t:"area",ph:"პოსტის ტექსტი გამოქვეყნებისას"},
+   {k:"comment",l:"არჩილის კომენტარი",t:"area",ph:"შენიშვნები, შესწორებები, ტექნიკური უზუსტობები"}]}
+};
+const REPORT=[
+ {k:"views",l:"ნახვები",t:"text",half:1},{k:"reach",l:"მიღწეული აუდიტორია",t:"text",half:1},
+ {k:"engagement",l:"ჩართულობა",t:"text",half:1},{k:"shares",l:"გაზიარებები",t:"text",half:1},
+ {k:"saves",l:"შენახვები",t:"text",half:1},{k:"customers",l:"მომხმარებლები / ლიდები",t:"text",half:1},
+ {k:"top",l:"ყველაზე შედეგიანი კონტენტის ტიპები",t:"area",ph:"რომელმა ვიდეოებმა და ტიპებმა იმუშავა საუკეთესოდ"},
+ {k:"insights",l:"დასკვნები: რას ვცვლით მომდევნო თვის კონტენტ სტრატეგიაში",t:"area",cls:"tall"},
+ {k:"notes",l:"სხვა შენიშვნები",t:"area"}
+];
+const TABS=[["overview","მიმოხილვა"],["info","ინფორმაცია"],["videos","ვიდეოები"],["report","ანგარიში"]];
+const COLS=["items","infodocs","products","checks","reports"];
+const INFO=[
+ {k:"products",l:"1. სიახლეები",t:"area",cls:"short"},
+ {k:"promos",l:"2. აქციები და სპეციალური შეთავაზებები",t:"area",cls:"short"},
+ {k:"faq",l:"3. მომხმარებლების ხშირად დასმული კითხვები",t:"area",cls:"short"},
+ {k:"ideas",l:"4. იდეები",t:"area",cls:"short"},
+ {k:"amq",l:"Alter Media-ს კითხვები და კომენტარები არჩილისთვის",t:"area",cls:"short"}
+];
+const INFO_NOTE={k:"added",l:"დამატებული ინფორმაცია",t:"text",cls:"key"};
+const infoHas=d=>(!!d&&INFO.some(f=>f.k!=="amq"&&d[f.k]))||D.products.some(p=>p.month===ym);
+const infoNew=d=>!!d&&!!d.sentAt&&sentPending(d);
+const sentPending=d=>!d.seenAt||d.sentAt>d.seenAt;
+
+/* ---------- state ---------- */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let db=null,user=null,uid=null,canWrite=true,loadedSet=new Set();
+const D={items:[],infodocs:[],products:[],checks:[],reports:[]};
+const sel={videos:null};
+const filt={videos:null};
+const names={};
+const now=new Date();
+let ym=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+let tab="overview",mounted=null,builtFor=null,saving=0;
+const saveState={};
+try{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h))tab=h}catch(e){}
+
+const stOf=(list,k)=>list.find(s=>s.k===k)||list[0];
+function monthLabel(){const [y,m]=ym.split("-");return MONTHS[+m-1]+" "+y}
+function fmtDate(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?m[3]+"."+m[2]:(s||"")}
+function fmtTs(ts){if(!ts)return"";const d=new Date(ts);return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function notice(msg){const n=$("notice");n.textContent=msg||"";n.classList.toggle("on",!!msg)}
+function setSaveLabel(t){const e=$("saveLabel");if(e)e.textContent=t}
+function nameOf(id){return id?(names[id]||""):""}
+function monthList(col){
+  const l=D[col].filter(i=>i.month===ym);
+  return l.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+}
+function goTab(k,f){
+  tab=k;if(f!==undefined&&filt.hasOwnProperty(k))filt[k]=f;
+  try{location.hash="#"+k}catch(e){}
+  render();window.scrollTo(0,0);
+}
+
+/* ---------- saving (debounced, one write at a time per document) ---------- */
+function queueSave(col,id,patch){
+  let it=D[col].find(x=>x.id===id);
+  if(!it&&(col==="reports"||col==="infodocs")){it={id,month:id};D[col].push(it)}
+  if(it)Object.assign(it,patch);
+  const key=col+"/"+id;
+  const s=saveState[key]||(saveState[key]={patch:{},timer:null,chain:Promise.resolve()});
+  Object.assign(s.patch,patch);
+  setSaveLabel("ინახება…");
+  clearTimeout(s.timer);
+  s.timer=setTimeout(()=>flush(col,id),("status" in patch)?0:700);
+}
+function flush(col,id){
+  const s=saveState[col+"/"+id];if(!s||!db)return;
+  const body=Object.assign({},s.patch,{updatedBy:uid||null,updatedAt:Date.now()});
+  s.patch={};saving++;
+  const ref=db.collection(col).doc(id);
+  s.chain=s.chain.then(async()=>{
+    if(col==="reports"||col==="infodocs"){const g=await ref.get();if(!g.exists)await ref.set({month:id,createdAt:Date.now()})}
+    await ref.update(body);
+  }).catch(e=>{
+    notice("ცვლილება ვერ შეინახა"+(e&&e.code==="invalid_argument"?": თქვენ მხოლოდ ნახვის უფლება გაქვთ ან ჩანაწერი წაშლილია.":". სცადეთ ხელახლა."));
+  }).then(()=>{saving--;if(!saving)setSaveLabel("შენახულია")});
+}
+function toggleTask(key){
+  if(!db||!canWrite)return;
+  const id=ym+"_"+key;
+  const cur=D.checks.find(c=>c.id===id);
+  const done=!(cur&&cur.done);
+  const body={ym,key,done,by:uid||null,at:Date.now()};
+  if(cur)Object.assign(cur,body);else D.checks.push(Object.assign({id},body));
+  const s=saveState["checks/"+id]||(saveState["checks/"+id]={chain:Promise.resolve()});
+  s.chain=s.chain.then(()=>db.collection("checks").doc(id).set(body)).catch(()=>notice("ამოცანის ნიშნულის შენახვა ვერ მოხერხდა."));
+  render();
+  const el=document.querySelector('[data-task="'+key+'"]');if(el)el.focus();
+}
+async function addEntity(){
+  const E=ENT[tab];if(!db||!canWrite)return;
+  try{
+    const t=Date.now();
+    const ref=await db.collection(E.col).add(Object.assign({month:ym,status:E.st[0].k,createdAt:t,createdBy:uid||null,updatedBy:uid||null,updatedAt:t},E.defaults));
+    sel[tab]=ref.id;render();
+    const first=document.querySelector("#detail [data-k]");if(first)first.focus();
+  }catch(e){notice(e&&e.code==="quota_exceeded"?"ბაზა გაივსო. წაშალეთ ძველი ჩანაწერები.":"ჩანაწერი ვერ დაემატა. სცადეთ ხელახლა.")}
+}
+async function deleteEntity(col,id){
+  try{await db.collection(col).doc(id).delete();if(sel[tab]===id)sel[tab]=null;render()}
+  catch(e){notice("წაშლა ვერ მოხერხდა.")}
+}
+
+/* ---------- shell ---------- */
+function renderTabs(){
+  const cnt={videos:monthList("items").length};
+  $("tabs").innerHTML=TABS.map(([k,t])=>`<button type="button" role="tab" data-t="${k}" aria-selected="${k===tab}">${esc(t)}${cnt[k]?`<span class="n">${cnt[k]}</span>`:""}</button>`).join("");
+  $("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>goTab(b.dataset.t));
+}
+function render(){
+  $("monthLabel").textContent=monthLabel();
+  renderTabs();
+  if(mounted!==tab){mounted=tab;builtFor=null;mountView()}
+  if(tab==="overview")renderOverview();
+  else if(tab==="report")renderReport();
+  else if(tab==="info")renderInfo();
+  else renderEntity();
+}
+function mountView(){
+  const v=$("view");
+  if(tab==="overview"||tab==="report"||tab==="info"){v.innerHTML='<div class="page" id="page"></div>';return}
+  const E=ENT[tab];
+  v.innerHTML=`<div class="bar"><button class="add" id="add" type="button">${esc(E.add)}</button><div class="chips" id="chips"></div></div>
+  <p class="hintline">${esc(E.lead)}</p>
+  <main class="main" id="main"><section class="list" id="list" aria-label="${esc(E.label)}"></section><section class="detailcol" id="detail"></section></main>`;
+  $("add").onclick=addEntity;
+}
+
+/* ---------- overview ---------- */
+function renderOverview(){
+  const page=$("page");if(!page)return;
+  const focusKey=document.activeElement&&document.activeElement.dataset&&document.activeElement.dataset.task;
+  const vids=monthList("items"),idoc=D.infodocs.find(r=>r.id===ym)||{};
+  const cur=ym===(now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0"));
+  const day=now.getDate();
+  const isDone=k=>{const c=D.checks.find(x=>x.id===ym+"_"+k);return !!(c&&c.done)};
+  const total=PHASES.reduce((n,p)=>n+p.tasks.length,0);
+  const doneN=PHASES.reduce((n,p)=>n+p.tasks.filter(t=>isDone(p.id+t[0])).length,0);
+  const ok=vids.filter(v=>v.status==="ok").length;
+  const att=[];
+  const nRev=vids.filter(v=>v.status==="review").length,nFix=vids.filter(v=>v.status==="fix").length,nNew=infoNew(idoc)?1:0;
+  if(nRev)att.push(["videos","review",`არჩილის განხილვაში: ${nRev} ვიდეო`,"var(--s-review)"]);
+  if(nFix)att.push(["videos","fix",`საჭიროებს შესწორებას: ${nFix} ვიდეო`,"var(--s-fix)"]);
+  if(nNew)att.push(["info",null,"ახალი ინფორმაცია არის გადასახედი","var(--s-review)"]);
+  page.innerHTML=`
+   <p class="lead">${esc(monthLabel())}: ყველაფერი, რაც ამ თვის გეგმას ეხება, ერთ ადგილას. ცვლილებები ყველას უჩანს.</p>
+   <div class="tiles">
+     <div class="tile"><b>${doneN} / ${total}</b><span>ამოცანა შესრულებულია</span></div>
+   </div>
+   <section class="panel"><h2>საჭიროებს ყურადღებას</h2><div class="attn">${att.length?att.map((a,n)=>`<button type="button" data-go="${n}" style="--c:${a[3]}">${esc(a[2])}</button>`).join(""):'<span class="ok">ახლა ყველაფერი წესრიგშია.</span>'}</div></section>
+   ${PHASES.map(p=>{
+     const n=p.tasks.filter(t=>isDone(p.id+t[0])).length;
+     const isNow=cur&&day>=p.from&&day<=p.to;
+     return `<section class="phase${isNow?" now":""}"><header><span class="days">${esc(p.days)}</span><h2>${esc(p.title)}</h2>${isNow?'<span class="nowtag">ახლა</span>':""}<span class="who">პასუხისმგებელი: ${esc(p.who)}</span><span class="prog">${n} / ${p.tasks.length}</span></header>
+     ${p.tasks.map(t=>{
+       const key=p.id+t[0],c=D.checks.find(x=>x.id===ym+"_"+key),d=!!(c&&c.done);
+       const by=d?[nameOf(c.by),fmtTs(c.at)].filter(Boolean).join(", "):"";
+       return `<label class="task${d?" done":""}"><input type="checkbox" data-task="${key}" ${d?"checked":""} ${canWrite?"":"disabled"}><span class="t">${esc(t[1])}${by?`<span class="by">✓ ${esc(by)}</span>`:""}</span>${t[2]?`<span class="actor">${esc(t[2])}</span>`:""}</label>`;
+     }).join("")}</section>`;
+   }).join("")}`;
+  page.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const a=att[+b.dataset.go];goTab(a[0],a[1])});
+  page.querySelectorAll("[data-task]").forEach(c=>c.onchange=()=>toggleTask(c.dataset.task));
+  if(focusKey){const el=page.querySelector('[data-task="'+focusKey+'"]');if(el)el.focus()}
+}
+
+/* ---------- entity tabs ---------- */
+function renderEntity(){
+  const E=ENT[tab];if(!$("list"))return;
+  $("add").disabled=!db||!canWrite;
+  const all=monthList(E.col);
+  $("chips").innerHTML=E.st.map(s=>`<button class="chip" type="button" data-k="${s.k}" aria-pressed="${filt[tab]===s.k}" style="--c:${s.c}"><i></i>${esc(s.t)} <b>${all.filter(i=>(i.status||E.st[0].k)===s.k).length}</b></button>`).join("");
+  $("chips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{filt[tab]=filt[tab]===b.dataset.k?null:b.dataset.k;render()});
+  let list=all;if(filt[tab])list=list.filter(i=>(i.status||E.st[0].k)===filt[tab]);
+  const el=$("list");
+  if(!loadedSet.has(E.col)){el.innerHTML='<div class="emptybox">იტვირთება…</div>'}
+  else if(!list.length){el.innerHTML=`<div class="emptybox">${filt[tab]?"ამ სტატუსით ჩანაწერი არ არის.":esc(E.none)}</div>`}
+  else{
+    el.innerHTML=list.map((i,n)=>{
+      const st=stOf(E.st,i.status),nm=E.title(i);
+      const tags=E.tags(i).filter(Boolean),sub=E.sub(i).filter(Boolean);
+      return `<button class="row" type="button" data-id="${esc(i.id)}" style="--c:${st.c}" aria-current="${i.id===sel[tab]}">
+        <span class="name ${nm?"":"empty"}">${n+1}. ${esc(nm||E.noName)}</span>
+        <span class="meta"><span class="pill">${esc(st.t)}</span>${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${sub.map(t=>`<span>${esc(t)}</span>`).join("")}</span></button>`;
+    }).join("");
+    el.querySelectorAll(".row").forEach(b=>b.onclick=()=>{sel[tab]=b.dataset.id;render()});
+  }
+  $("main").classList.toggle("detail",!!sel[tab]&&all.some(x=>x.id===sel[tab]));
+  renderEntDetail(all);
+}
+function optsHTML(arr,ph){return `<option value="">${esc(ph||"")}</option>`+arr.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join("")}
+function fieldHTML(f,dis){
+  const id="f_"+f.k;let ctl;
+  if(f.t==="area")ctl=`<textarea id="${id}" data-k="${f.k}" ${dis} placeholder="${esc(f.ph||"")}"></textarea>`;
+  else if(f.t==="select")ctl=`<select id="${id}" data-k="${f.k}" ${dis}>${optsHTML(f.opts,f.ph)}</select>`;
+  else if(f.t==="date")ctl=`<input type="date" id="${id}" data-k="${f.k}" ${dis}>`;
+  else if(f.t==="embed")ctl=`<div class="embedwrap" id="embedBox"></div>`;
+  else if(f.t==="tags")ctl=`<div class="tagpick" id="${id}" data-tags="${f.k}">${f.opts.map(o=>`<button type="button" class="tp" data-v="${esc(o)}" aria-pressed="false" ${dis}>${esc(o)}</button>`).join("")}</div>`;
+  else ctl=`<input id="${id}" data-k="${f.k}" ${dis} placeholder="${esc(f.ph||"")}">`;
+  return `<div class="f ${f.half?"":"wide"} ${f.cls||""}" data-wrap="${f.k}"><label for="${id}">${esc(f.l)}</label>${ctl}${f.hint?`<span class="hint">${esc(f.hint)}</span>`:""}</div>`;
+}
+function embedUrl(u){
+  u=(u||"").trim();if(!u)return"";
+  let m=u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
+  if(m)return"https://drive.google.com/file/d/"+m[1]+"/preview";
+  m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/))([\w-]{6,})/);
+  if(m)return"https://www.youtube.com/embed/"+m[1];
+  return"";
+}
+function patchEmbed(box,it){
+  const wrap=box.querySelector('[data-wrap="_embed"]'),el=box.querySelector("#embedBox");if(!el)return;
+  const raw=(it.driveUrl||"").trim(),url=embedUrl(raw);
+  if(wrap)wrap.hidden=!raw;
+  if(!raw){el.dataset.src="";el.innerHTML="";return}
+  if(!url){el.dataset.src="";el.innerHTML='<span class="hint">ბმული ვერ ამოვიცანი. გამოიყენეთ Google Drive-ის ან YouTube-ის ბმული.</span>';return}
+  if(el.dataset.src!==url){
+    el.dataset.src=url;
+    let mode="v";try{mode=localStorage.getItem("gp-embed")||"v"}catch(e){}
+    el.innerHTML=`<div class="embed ${mode}"><iframe src="${esc(url)}" allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="ვიდეო"></iframe></div>
+      <div class="embedbar"><button type="button" data-m="v" aria-pressed="${mode==="v"}">ვერტიკალური</button><button type="button" data-m="h" aria-pressed="${mode==="h"}">ჰორიზონტალური</button><a href="${esc(raw)}" target="_blank" rel="noopener">გახსნა ახალ ფანჯარაში</a></div>`;
+    el.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{
+      try{localStorage.setItem("gp-embed",b.dataset.m)}catch(e){}
+      el.querySelector(".embed").className="embed "+b.dataset.m;
+      el.querySelectorAll("[data-m]").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
+    });
+  }
+}
+function patchFields(box,it,fields,disabled){
+  fields.forEach(f=>{
+    const wrap=box.querySelector('[data-wrap="'+f.k+'"]');
+    if(f.showIf&&wrap)wrap.hidden=!f.showIf(it);
+    if(f.t==="embed"){patchEmbed(box,it);return}
+    if(f.t==="tags"){const cur=it[f.k]||[];box.querySelectorAll('[data-tags="'+f.k+'"] .tp').forEach(b=>b.setAttribute("aria-pressed",cur.includes(b.dataset.v)?"true":"false"));return}
+    const c=box.querySelector('[data-k="'+f.k+'"]');
+    if(c&&document.activeElement!==c){const v=it[f.k]||"";if(c.value!==v)c.value=v}
+  });
+}
+function renderEntDetail(all){
+  const E=ENT[tab],box=$("detail");
+  const it=all.find(x=>x.id===sel[tab]);
+  if(!it){builtFor=null;box.innerHTML='<div class="placeholder">აირჩიეთ ჩანაწერი სიიდან ან დაამატეთ ახალი.</div>';return}
+  const dis=canWrite?"":"disabled",key=tab+"/"+it.id;
+  if(builtFor!==key){
+    builtFor=key;
+    box.innerHTML=`<div class="card"><button class="back" type="button" id="back">‹ სიაში დაბრუნება</button>
+      <div class="status" id="statusBar" role="group" aria-label="სტატუსი"></div>
+      <div class="grid2">${E.fields.map(f=>fieldHTML(f,dis)).join("")}</div>
+      <div class="foot"><span id="editor"></span><span id="saveLabel"></span><button class="del" id="del" type="button" ${dis}>წაშლა</button></div></div>`;
+    $("back").onclick=()=>{sel[tab]=null;render()};
+    box.querySelectorAll("[data-k]").forEach(f=>f.addEventListener("input",()=>{queueSave(E.col,it.id,{[f.dataset.k]:f.value});const cur=D[E.col].find(x=>x.id===it.id);E.fields.forEach(g=>{if(g.showIf){const w=box.querySelector('[data-wrap="'+g.k+'"]');if(w)w.hidden=!g.showIf(cur)}})}));
+    box.querySelectorAll("[data-tags]").forEach(tp=>tp.addEventListener("click",e=>{
+      const b=e.target.closest(".tp");if(!b||!canWrite)return;
+      const k=tp.dataset.tags,cur=(D[E.col].find(x=>x.id===it.id)||{})[k]||[];
+      const next=cur.includes(b.dataset.v)?cur.filter(v=>v!==b.dataset.v):cur.concat(b.dataset.v);
+      queueSave(E.col,it.id,{[k]:next});patchFields(box,D[E.col].find(x=>x.id===it.id),E.fields);
+    }));
+    let armed=false;
+    $("del").onclick=function(){
+      if(!armed){armed=true;this.textContent="დარწმუნებული ხართ? წაშლა";this.classList.add("sure");setTimeout(()=>{armed=false;if(this.isConnected){this.textContent="წაშლა";this.classList.remove("sure")}},4000)}
+      else deleteEntity(E.col,it.id);
+    };
+  }
+  patchFields(box,it,E.fields,!canWrite);
+  const sb=$("statusBar");
+  sb.innerHTML=E.st.map(s=>`<button type="button" data-k="${s.k}" style="--c:${s.c}" aria-pressed="${(it.status||E.st[0].k)===s.k}" ${dis}><i></i>${esc(s.t)}</button>`).join("");
+  sb.querySelectorAll("button").forEach(b=>b.onclick=()=>{queueSave(E.col,it.id,{status:b.dataset.k});render()});
+  const who=nameOf(it.updatedBy);
+  $("editor").textContent=it.updatedAt?"ბოლო ცვლილება: "+(who?who+", ":"")+fmtTs(it.updatedAt):"";
+}
+
+/* ---------- info (Archil, days 1-3) ---------- */
+function renderInfo(){
+  const page=$("page");if(!page)return;
+  const dis=canWrite?"":"disabled";
+  const doc=D.infodocs.find(r=>r.id===ym)||{id:ym,month:ym};
+  if(builtFor!=="info/"+ym){
+    builtFor="info/"+ym;
+    page.innerHTML=`<p class="lead">არჩილი ამ გვერდზე ავსებს ინფორმაციას 1–3 რიცხვში და საჭიროებისამებრ მთელი თვის განმავლობაში. სხვაგან გაგზავნა საჭირო არ არის. ცარიელი განყოფილება უბრალოდ გამოტოვეთ.</p>
+     <section class="panel"><h2>სტატუსი</h2><div id="infoStatus"></div></section>
+     <section class="card"><div class="grid2">${INFO.filter(f=>f.k!=="amq").map(f=>fieldHTML(f,dis)).join("")}
+       <div class="f wide"><label>5. პროდუქტები მომდევნო თვის ვიდეოებისთვის</label><div id="prodList"></div><span class="hint" id="prodEmpty"></span><div><button type="button" class="addsm" id="prodAdd" ${dis}>+ პროდუქტის დამატება</button></div></div>
+       ${[INFO.find(f=>f.k==="amq"),INFO_NOTE].map(f=>fieldHTML(f,dis)).join("")}</div>
+     <div class="foot"><span id="editor"></span><span id="saveLabel"></span></div></section>`;
+    page.querySelectorAll("[data-k]").forEach(f=>f.addEventListener("input",()=>{
+      const patch={[f.dataset.k]:f.value};
+      queueSave("infodocs",ym,patch);renderInfoStatus();
+    }));
+    $("prodAdd").onclick=addProduct;
+  }
+  patchFields(page,doc,INFO.concat([INFO_NOTE]),!canWrite);
+  renderProducts();
+  renderInfoStatus();
+  const who=nameOf(doc.updatedBy);
+  $("editor").textContent=doc.updatedAt?"ბოლო ცვლილება: "+(who?who+", ":"")+fmtTs(doc.updatedAt):"";
+}
+const PROD=[
+ {k:"name",l:"დასახელება",t:"input"},
+ {k:"usage",l:"გამოყენების წესი",t:"area"},
+ {k:"adv",l:"უპირატესობები",t:"area"},
+ {k:"spec",l:"მახასიათებლები",t:"area"},
+ {k:"photo",l:"ფოტო კომპანიის არქივიდან",t:"input",ph:"ფაილის სახელი ან სად მდებარეობს"}
+];
+let openProd=null;
+async function addProduct(){
+  if(!db||!canWrite)return;
+  try{
+    const t=Date.now();
+    const ref=await db.collection("products").add({month:ym,name:"",usage:"",adv:"",spec:"",photo:"",createdAt:t,createdBy:uid||null,updatedBy:uid||null,updatedAt:t});
+    openProd=ref.id;
+    render();
+  }catch(e){notice("პროდუქტი ვერ დაემატა. სცადეთ ხელახლა.")}
+}
+function renderProducts(){
+  const box=$("prodList");if(!box)return;
+  const list=D.products.filter(p=>p.month===ym).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  const dis=canWrite?"":"disabled";
+  [...box.children].forEach(el=>{if(!list.some(p=>p.id===el.dataset.id))el.remove()});
+  list.forEach((p,n)=>{
+    let el=[...box.children].find(e=>e.dataset.id===p.id);
+    if(!el){
+      el=document.createElement("details");el.className="prod";el.dataset.id=p.id;
+      el.innerHTML=`<summary><span class="pname"></span></summary><div class="pbody">${PROD.map(f=>`<div class="f"><label>${esc(f.l)}</label>${f.t==="area"?`<textarea class="short" data-pk="${f.k}" ${dis}></textarea>`:`<input data-pk="${f.k}" ${dis} placeholder="${esc(f.ph||"")}">`}</div>`).join("")}<div><button type="button" class="del pdel" ${dis}>წაშლა</button></div></div>`;
+      el.querySelectorAll("[data-pk]").forEach(inp=>inp.addEventListener("input",()=>{
+        queueSave("products",p.id,{[inp.dataset.pk]:inp.value});
+        if(inp.dataset.pk==="name")setPName(el);
+        renderInfoStatus();
+      }));
+      let armed=false;const d=el.querySelector(".pdel");
+      d.onclick=async()=>{
+        if(!armed){armed=true;d.textContent="დარწმუნებული ხართ? წაშლა";d.classList.add("sure");setTimeout(()=>{armed=false;if(d.isConnected){d.textContent="წაშლა";d.classList.remove("sure")}},4000)}
+        else{try{await db.collection("products").doc(p.id).delete();}catch(e){notice("წაშლა ვერ მოხერხდა.")}}
+      };
+      box.appendChild(el);
+    }
+    if(box.children[n]!==el)box.insertBefore(el,box.children[n]||null);
+    el.dataset.n=n+1;
+    el.querySelectorAll("[data-pk]").forEach(inp=>{if(document.activeElement!==inp){const v=p[inp.dataset.pk]||"";if(inp.value!==v)inp.value=v}});
+    setPName(el);
+    if(openProd===p.id){el.open=true;openProd=null;const f=el.querySelector("[data-pk]");if(f)f.focus()}
+  });
+  $("prodEmpty").textContent=list.length?"":"ჯერ პროდუქტი არ არის დამატებული.";
+}
+function setPName(el){const inp=el.querySelector('[data-pk="name"]');el.querySelector(".pname").textContent=el.dataset.n+". "+((inp&&inp.value)||"უსახელო პროდუქტი")}
+
+function renderInfoStatus(){
+  const el=$("infoStatus");if(!el)return;
+  const doc=D.infodocs.find(r=>r.id===ym)||{};
+  let msg;
+  if(!infoHas(doc))msg="ინფორმაცია ჯერ არ არის შევსებული.";
+  else if(infoNew(doc))msg="ახალი ინფორმაცია არის გადასახედი.";
+  else if(doc.sentAt)msg="გათვალისწინებულია ("+(nameOf(doc.seenBy)?nameOf(doc.seenBy)+", ":"")+fmtTs(doc.seenAt)+").";
+  else msg="ინფორმაცია ჯერ არ გაგზავნილა გადასახედად.";
+  if(doc.added)msg+=" დამატებული ინფორმაცია: „"+doc.added+"“";
+  const pend=infoNew(doc),canSend=infoHas(doc)&&!pend;
+  el.innerHTML=`<div class="statusrow"><span>${esc(msg)}</span>${pend?`<button class="add" id="seenBtn" type="button" ${canWrite?"":"disabled"}>გათვალისწინებულია</button>`:""}${canSend?`<button class="add" id="sendBtn" type="button" ${canWrite?"":"disabled"}>გადასახედად გაგზავნა</button>`:""}</div>`;
+  const b=$("seenBtn");if(b)b.onclick=()=>{queueSave("infodocs",ym,{seenAt:Date.now(),seenBy:uid||null});render()};
+  const sb=$("sendBtn");if(sb)sb.onclick=()=>{queueSave("infodocs",ym,{sentAt:Date.now(),sentBy:uid||null});render()};
+}
+
+/* ---------- report ---------- */
+function renderReport(){
+  const page=$("page");if(!page)return;
+  const dis=canWrite?"":"disabled";
+  const rep=D.reports.find(r=>r.id===ym)||{id:ym,month:ym};
+  if(builtFor!=="report/"+ym){
+    builtFor="report/"+ym;
+    page.innerHTML=`<p class="lead">ივსება თვის ბოლოს (28–30/31 რიცხვი). ყოველი თვის ანგარიში ცალკე ინახება; ზემოთ არჩეული თვე განსაზღვრავს, რომელს ხედავთ.</p>
+     <section class="panel"><h2>შენახული ანგარიშები</h2><div class="archive" id="archive"></div></section>
+     <section class="panel"><h2>ვიდეოები ტიპების მიხედვით</h2><div class="tablewrap" id="typeTable"></div></section>
+     <section class="card"><h2>${esc(monthLabel())}: შედეგები</h2><div class="grid2">${REPORT.map(f=>fieldHTML(f,dis)).join("")}</div>
+     <div class="foot"><span id="editor"></span><span id="saveLabel"></span></div></section>`;
+    page.querySelectorAll("[data-k]").forEach(f=>f.addEventListener("input",()=>queueSave("reports",ym,{[f.dataset.k]:f.value})));
+  }
+  const hasData=r=>REPORT.some(f=>r[f.k]);
+  const past=D.reports.filter(r=>hasData(r)).map(r=>r.id).sort().reverse();
+  $("archive").innerHTML=past.length?past.map(id=>{const [y,m]=id.split("-");return `<button type="button" data-ym="${id}" aria-current="${id===ym}">${esc(MONTHS[+m-1]+" "+y)}</button>`}).join(""):'<span class="lead">ჯერ არცერთი ანგარიში არ არის შენახული.</span>';
+  $("archive").querySelectorAll("button").forEach(b=>b.onclick=()=>{ym=b.dataset.ym;builtFor=null;render()});
+  const vids=monthList("items");
+  const rows=TYPES.map(t=>[t,vids.filter(v=>v.type===t).length,vids.filter(v=>v.type===t&&v.status==="ok").length]).filter(r=>r[1]>0);
+  $("typeTable").innerHTML=rows.length?`<table><thead><tr><th>ტიპი</th><th class="num">ვიდეო</th><th class="num">დამტკიცებული</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r[0])}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td></tr>`).join("")}</tbody></table>`:'<span class="lead">ამ თვეში ტიპით მონიშნული ვიდეო ჯერ არ არის.</span>';
+  patchFields(page,rep,REPORT,!canWrite);
+  const who=nameOf(rep.updatedBy);
+  $("editor").textContent=rep.updatedAt?"ბოლო ცვლილება: "+(who?who+", ":"")+fmtTs(rep.updatedAt):"";
+}
+
+/* ---------- names ---------- */
+async function resolveNames(){
+  if(!user||!user.profiles)return;
+  const ids=new Set();
+  ["items","infodocs","products","reports"].forEach(c=>D[c].forEach(i=>{if(i.updatedBy)ids.add(i.updatedBy)}));
+  D.checks.forEach(c=>{if(c.by)ids.add(c.by)});
+  const need=[...ids].filter(i=>!(i in names));
+  if(!need.length)return;
+  try{const ps=await user.profiles(need);need.forEach(i=>{names[i]=(ps&&ps[i]&&ps[i].name)||"სხვა მომხმარებელი"});render()}catch(e){}
+}
+
+/* ---------- start ---------- */
+(function(){
+  const root=document.documentElement,btn=$("themeBtn");
+  const sys=()=>(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+  let cur=root.getAttribute("data-theme");
+  try{const sv=localStorage.getItem("gp-theme");if(sv==="dark"||sv==="light")cur=sv}catch(e){}
+  if(cur!=="dark"&&cur!=="light")cur=sys();
+  function apply(){root.setAttribute("data-theme",cur);btn.textContent=cur==="dark"?"☀ დღე":"☾ ღამე";btn.setAttribute("aria-label",cur==="dark"?"დღის რეჟიმზე გადასვლა":"ღამის რეჟიმზე გადასვლა")}
+  btn.onclick=()=>{cur=cur==="dark"?"light":"dark";try{localStorage.setItem("gp-theme",cur)}catch(e){}apply()};
+  apply();
+})();
+$("prev").onclick=()=>shiftMonth(-1);
+$("next").onclick=()=>shiftMonth(1);
+function shiftMonth(d){let [y,m]=ym.split("-").map(Number);m+=d;if(m<1){m=12;y--}if(m>12){m=1;y++}ym=y+"-"+String(m).padStart(2,"0");sel.videos=null;filt.videos=null;builtFor=null;render()}
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h)&&h!==tab){tab=h;render()}});
+render();
+
+/* ===== Supabase connection =====
+   Replace the two values below with your own (Supabase -> Project Settings -> API Keys).
+   Use the PUBLISHABLE key (starts with sb_publishable_). Never put the secret key here. */
+const SUPABASE_URL="https://swupyfrkddcuxfheemdn.supabase.co";
+const SUPABASE_KEY="sb_publishable_pzkLPKuDU88Bh8wDGpxQdQ_zIpcG8U0";
+let sb=null;
+try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){}
+
+const MAPS={
+ items:{table:"videos",kind:"id",ts:["createdAt","updatedAt"],f:{month:"month",product:"product",type:"type",audience:"audience",fear:"fear",idea:"idea",script:"script",caption:"caption",comment:"comment",driveUrl:"drive_url",status:"status",createdAt:"created_at",updatedAt:"updated_at",updatedBy:"updated_by"}},
+ infodocs:{table:"info_docs",kind:"month",ts:["sentAt","seenAt","updatedAt"],f:{month:"month",products:"news",promos:"promos",faq:"faq",ideas:"ideas",amq:"amq",added:"added",sentAt:"sent_at",sentBy:"sent_by",seenAt:"seen_at",seenBy:"seen_by",updatedAt:"updated_at",updatedBy:"updated_by"}},
+ products:{table:"info_products",kind:"id",ts:["createdAt","updatedAt"],f:{month:"month",name:"name",usage:"usage",adv:"adv",spec:"spec",photo:"photo",createdAt:"created_at",updatedAt:"updated_at",updatedBy:"updated_by"}},
+ checks:{table:"checks",kind:"check",ts:["at"],f:{ym:"month",key:"task",done:"done",by:"done_by",at:"done_at"}},
+ reports:{table:"reports",kind:"month",ts:["updatedAt"],f:{month:"month",views:"views",reach:"reach",engagement:"engagement",shares:"shares",saves:"saves",customers:"customers",top:"top",insights:"insights",notes:"notes",updatedAt:"updated_at",updatedBy:"updated_by"}}
+};
+function toRow(cfg,obj){const r={};for(const a in obj){const c=cfg.f[a];if(!c)continue;let v=obj[a];if(cfg.ts.includes(a)&&v!=null)v=new Date(v).toISOString();r[c]=v}return r}
+function fromRow(cfg,row){const o={};for(const a in cfg.f){let v=row[cfg.f[a]];if(cfg.ts.includes(a)&&v)v=Date.parse(v);o[a]=v}return o}
+function rowId(cfg,r){return cfg.kind==="id"?r.id:cfg.kind==="month"?r.month:r.month+"_"+r.task}
+function idCond(cfg,id){return cfg.kind==="id"?{id}:cfg.kind==="month"?{month:id}:{month:id.split("_")[0],task:id.split("_").slice(1).join("_")}}
+function withCond(q,cond){for(const k in cond)q=q.eq(k,cond[k]);return q}
+async function ok(p){const r=await p;if(r.error)throw r.error;return r}
+
+function makeDb(){
+  return {collection(name){
+    const cfg=MAPS[name],tbl=()=>sb.from(cfg.table);
+    const conflict=cfg.kind==="month"?"month":"month,task";
+    return {
+      onSnapshot(next,error){
+        let dead=false,timer=null;
+        const load=async()=>{
+          const r=await tbl().select("*");if(dead)return;
+          if(r.error){error&&error(r.error);return}
+          next({docs:r.data.map(row=>({id:rowId(cfg,row),data:()=>fromRow(cfg,row)})),metadata:{fromCache:false}});
+        };
+        load();
+        const ch=sb.channel("rt-"+name+"-"+Math.random().toString(36).slice(2))
+          .on("postgres_changes",{event:"*",schema:"public",table:cfg.table},()=>{clearTimeout(timer);timer=setTimeout(load,150)})
+          .subscribe();
+        return()=>{dead=true;sb.removeChannel(ch)};
+      },
+      doc(id){return{
+        id,
+        async get(){const r=await ok(withCond(tbl().select("*"),idCond(cfg,id)).maybeSingle());return{id,exists:!!r.data,data:()=>r.data?fromRow(cfg,r.data):undefined}},
+        async set(body){await ok(tbl().upsert(Object.assign(cfg.kind==="check"?{}:idCond(cfg,id),toRow(cfg,body)),{onConflict:cfg.kind==="id"?"id":conflict}))},
+        async update(body){
+          const row=toRow(cfg,body);
+          if(cfg.kind==="id")await ok(tbl().update(row).eq("id",id));
+          else await ok(tbl().upsert(Object.assign(idCond(cfg,id),row),{onConflict:conflict}));
+        },
+        async delete(){await ok(withCond(tbl().delete(),idCond(cfg,id)))}
+      }},
+      async add(body){const r=await ok(tbl().insert(toRow(cfg,body)).select("id").single());return{id:r.data.id}}
+    };
+  }};
+}
+function makeUser(session){
+  const me=session.user;
+  return{
+    id:async()=>me.id,
+    can:async()=>true,
+    profiles:async(ids)=>{
+      const out={};
+      try{const r=await sb.from("profiles").select("id,email").in("id",ids);(r.data||[]).forEach(p=>{out[p.id]={name:(p.email||"").split("@")[0]}})}catch(e){}
+      return out;
+    }
+  };
+}
+
+/* ===== login and start ===== */
+let booted=false;
+async function startData(){
+  try{uid=user&&user.id?await user.id():null}catch(e){}
+  const timer=setTimeout(()=>{if(loadedSet.size<COLS.length)notice("მონაცემები ჯერ ვერ ჩაიტვირთა. შეამოწმეთ ინტერნეტი.")},10000);
+  COLS.forEach(c=>{
+    db.collection(c).onSnapshot(snap=>{
+      D[c]=snap.docs.map(d=>Object.assign({id:d.id},d.data()));
+      loadedSet.add(c);
+      if(loadedSet.size===COLS.length){clearTimeout(timer);notice("")}
+      render();resolveNames();
+    },e=>{clearTimeout(timer);loadedSet.add(c);notice("კავშირი შეწყდა. გახსენით გვერდი თავიდან.");render()});
+  });
+}
+function boot(session){
+  if(booted)return;booted=true;
+  document.body.classList.remove("locked");$("login").hidden=true;
+  db=makeDb();user=makeUser(session);
+  render();startData();
+}
+$("logoutBtn").onclick=async()=>{try{await sb.auth.signOut()}catch(e){}location.reload()};
+$("loginForm").onsubmit=async e=>{
+  e.preventDefault();
+  const err=$("lerr");err.textContent="";
+  if(!sb){err.textContent="საიტის კონფიგურაცია არასწორია (Supabase-ის მონაცემები).";return}
+  const r=await sb.auth.signInWithPassword({email:$("lemail").value.trim(),password:$("lpass").value});
+  if(r.error||!r.data.session){err.textContent="ელფოსტა ან პაროლი არასწორია.";return}
+  boot(r.data.session);
+};
+(async()=>{
+  if(!sb){$("login").hidden=false;$("lerr").textContent="საიტის კონფიგურაცია არასწორია (Supabase-ის მონაცემები).";return}
+  try{const r=await sb.auth.getSession();if(r.data&&r.data.session){boot(r.data.session);return}}catch(e){}
+  $("login").hidden=false;
+})();
+</script>
+</body>
+</html>
